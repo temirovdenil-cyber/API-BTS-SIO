@@ -8,17 +8,14 @@ const _inMemoryUsers = []
 
 async function register(req, res) {
   const { email, motDePasse } = req.body
-
   const hash = await hashMotDePasse(motDePasse)
-
-    let user
-    if (!prisma || !prisma.user) {
-      user = { id: _inMemoryUsers.length + 1, email, passwordHash: hash }
-      _inMemoryUsers.push(user)
-    } else {
-      user = await prisma.user.create({ data: { email, passwordHash: hash } })
-    }
-
+  let user
+  if (!prisma || !prisma.user) {
+    user = { id: _inMemoryUsers.length + 1, email, passwordHash: hash }
+    _inMemoryUsers.push(user)
+  } else {
+    user = await prisma.user.create({ data: { email, passwordHash: hash } })
+  }
   try {
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
@@ -30,36 +27,42 @@ async function register(req, res) {
   } catch (err) {
     console.error('Mail non envoyé :', err)
   }
-
   res.json({ message: 'Inscription réussie !' })
 }
+
 async function login(req, res) {
   const { email, motDePasse } = req.body
-
-    let user
-    if (!prisma || !prisma.user) {
-      user = _inMemoryUsers.find(u => u.email === email)
-    } else {
-      user = await prisma.user.findUnique({ where: { email } })
-    }
+  let user
+  if (!prisma || !prisma.user) {
+    user = _inMemoryUsers.find(u => u.email === email)
+  } else {
+    user = await prisma.user.findUnique({ where: { email } })
+  }
   if (!user) {
     return res.status(401).json({ message: 'Identifiants incorrects.' })
   }
-
   const valide = await verifierMotDePasse(user.passwordHash, motDePasse)
-
   if (!valide) {
     return res.status(401).json({ message: 'Identifiants incorrects.' })
   }
-
   const token = creerJeton(user.id)
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: 'Nouvelle connexion à votre compte',
+      text: 'Vous venez de vous connecter à votre compte.',
+      html: '<p>Vous venez de vous connecter à votre compte.</p>'
+    })
+  } catch (err) {
+    console.error('Mail non envoyé :', err)
+  }
   res.json({ token })
 }
+
 async function forgotPassword(req, res) {
   const { email } = req.body
-
   const user = await prisma.user.findUnique({ where: { email } })
-
   if (!user) {
     return res.json({ message: 'Si cet e-mail existe, un lien a été envoyé.' })
   }
@@ -84,9 +87,9 @@ async function forgotPassword(req, res) {
   } catch (err) {
     console.error('Mail non envoyé :', err)
   }
-
   res.json({ message: 'Si cet e-mail existe, un lien a été envoyé.' })
 }
+
 async function resetPassword(req, res) {
   const { token, nouveauMotDePasse } = req.body
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
@@ -96,13 +99,10 @@ async function resetPassword(req, res) {
       resetTokenExpiry: { gt: new Date() }
     }
   })
-
   if (!user) {
     return res.status(400).json({ message: 'Jeton invalide ou expiré.' })
   }
-
   const nouveauHash = await hashMotDePasse(nouveauMotDePasse)
-
   await prisma.user.update({
     where: { id: user.id },
     data: {
@@ -124,4 +124,5 @@ async function resetPassword(req, res) {
   }
   res.json({ message: 'Mot de passe réinitialisé avec succès.' })
 }
+
 module.exports = { register, login, forgotPassword, resetPassword }

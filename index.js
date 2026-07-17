@@ -1,9 +1,35 @@
 const express = require('express')
+const cors = require('cors')
 require('dotenv').config()
 const router = require('./routes/index')
 const app = express()
+
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}))
+
 app.use(express.json())
 app.use('/', router)
-app.listen(3000, () => {
-  console.log('Server is running on http://localhost:3000')
-})
+
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
+
+const router = require('./routes/index');
+
+const app = express();
+
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    "https://TON-PROJET.vercel.app"
+  ],
+  credentials: true
+}));
+
+app.use(express.json());
+
+app.use("/", router);
+
+module.exports = app;
