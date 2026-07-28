@@ -9,7 +9,7 @@ const app = express();
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://api-bts-sio-8fzm-dfy8oxux3-denil1.vercel.app"
+    "https://next-bts-sio.vercel.app"
   ],
   credentials: true
 }));
